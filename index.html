@@ -347,265 +347,309 @@
     </div>
 
     <script>
-      // Define the differential equation: dy/dx = x - y
-      let f = (x, y) => x - y;
-      
-      // Parse and create function from user input
-      function parseFunction(funcString) {
-          try {
-              // Create a function from the string
-              // Use 'with' statement alternative - create function with x and y parameters
-              const func = new Function('x', 'y', `return ${funcString};`);
-              
-              // Test the function with sample values
-              const testResult = func(1, 1);
-              if (typeof testResult !== 'number' || isNaN(testResult)) {
-                  throw new Error('Function must return a number');
-              }
-              
-              return { success: true, func: func };
-          } catch (error) {
-              return { success: false, error: error.message };
-          }
-      }
-      
-      // Update function from input
-      function updateFunction() {
-          const input = document.getElementById('function-input');
-          const errorDiv = document.getElementById('function-error');
-          const currentEq = document.getElementById('current-equation');
-          
-          const result = parseFunction(input.value);
-          
-          if (result.success) {
-              f = result.func;
-              input.classList.remove('error');
-              errorDiv.style.display = 'none';
-              currentEq.textContent = `dy/dx = ${input.value}`;
-              updateVisualization();
-          } else {
-              input.classList.add('error');
-              errorDiv.textContent = `Error: ${result.error}`;
-              errorDiv.style.display = 'block';
-          }
-      }
+        // Define the differential equation: dy/dx = x - y
+        let f = (x, y) => x - y;
+        
+        // Parse and create function from user input
+        function parseFunction(funcString) {
+            try {
+                // Create a function from the string
+                // Use 'with' statement alternative - create function with x and y parameters
+                const func = new Function('x', 'y', `return ${funcString};`);
+                
+                // Test the function with sample values
+                const testResult = func(1, 1);
+                if (typeof testResult !== 'number' || isNaN(testResult)) {
+                    throw new Error('Function must return a number');
+                }
+                
+                return { success: true, func: func };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+        
+        // Update function from input
+        function updateFunction() {
+            const input = document.getElementById('function-input');
+            const errorDiv = document.getElementById('function-error');
+            const currentEq = document.getElementById('current-equation');
+            
+            const result = parseFunction(input.value);
+            
+            if (result.success) {
+                f = result.func;
+                input.classList.remove('error');
+                errorDiv.style.display = 'none';
+                currentEq.textContent = `dy/dx = ${input.value}`;
+                updateVisualization();
+            } else {
+                input.classList.add('error');
+                errorDiv.textContent = `Error: ${result.error}`;
+                errorDiv.style.display = 'block';
+            }
+        }
 
-      // Euler's method implementation
-      function eulerMethod(f, x0, y0, xEnd, dx) {
-          const xs = [x0];
-          const ys = [y0];
-          
-          let x = x0;
-          let y = y0;
-          
-          while (x < xEnd) {
-              y = y + dx * f(x, y);
-              x = x + dx;
-              xs.push(x);
-              ys.push(y);
-          }
-          
-          return { xs, ys };
-      }
+        // Euler's method implementation
+        function eulerMethod(f, x0, y0, xEnd, dx) {
+            const xs = [x0];
+            const ys = [y0];
+            
+            let x = x0;
+            let y = y0;
+            
+            while (x < xEnd) {
+                const dy = f(x, y);
+                
+                // Check for numerical issues
+                if (!isFinite(dy)) {
+                    console.warn('Non-finite derivative encountered at x =', x, 'y =', y);
+                    break;
+                }
+                
+                y = y + dx * dy;
+                x = x + dx;
+                
+                // Check for blow-up
+                if (!isFinite(y) || Math.abs(y) > 1e10) {
+                    console.warn('Solution diverging at x =', x);
+                    break;
+                }
+                
+                xs.push(x);
+                ys.push(y);
+            }
+            
+            return { xs, ys };
+        }
 
-      // Runge-Kutta 4th order method for accurate solution
-      function rungeKutta4(f, x0, y0, xEnd, steps = 1000) {
-          const h = (xEnd - x0) / steps;
-          const xs = [x0];
-          const ys = [y0];
-          
-          let x = x0;
-          let y = y0;
-          
-          for (let i = 0; i < steps; i++) {
-              const k1 = h * f(x, y);
-              const k2 = h * f(x + h/2, y + k1/2);
-              const k3 = h * f(x + h/2, y + k2/2);
-              const k4 = h * f(x + h, y + k3);
-              
-              y = y + (k1 + 2*k2 + 2*k3 + k4) / 6;
-              x = x + h;
-              
-              xs.push(x);
-              ys.push(y);
-          }
-          
-          return { xs, ys };
-      }
+        // Runge-Kutta 4th order method for accurate solution
+        function rungeKutta4(f, x0, y0, xEnd, steps = 1000) {
+            const h = (xEnd - x0) / steps;
+            const xs = [x0];
+            const ys = [y0];
+            
+            let x = x0;
+            let y = y0;
+            
+            for (let i = 0; i < steps; i++) {
+                const k1 = h * f(x, y);
+                const k2 = h * f(x + h/2, y + k1/2);
+                const k3 = h * f(x + h/2, y + k2/2);
+                const k4 = h * f(x + h, y + k3);
+                
+                // Check for numerical issues
+                if (!isFinite(k1) || !isFinite(k2) || !isFinite(k3) || !isFinite(k4)) {
+                    console.warn('Non-finite k values at x =', x, 'y =', y);
+                    break;
+                }
+                
+                y = y + (k1 + 2*k2 + 2*k3 + k4) / 6;
+                x = x + h;
+                
+                // Check for blow-up
+                if (!isFinite(y) || Math.abs(y) > 1e10) {
+                    console.warn('RK4 solution diverging at x =', x);
+                    break;
+                }
+                
+                xs.push(x);
+                ys.push(y);
+            }
+            
+            return { xs, ys };
+        }
 
-      // Generate slope field with proper normalization
-      function generateSlopeField(f, xRange, yRange, arrowLength, density = 20) {
-          const field = [];
-          const xVals = [];
-          const yVals = [];
-          
-          for (let i = 0; i < density; i++) {
-              xVals.push(xRange[0] + i * (xRange[1] - xRange[0]) / (density - 1));
-              yVals.push(yRange[0] + i * (yRange[1] - yRange[0]) / (density - 1));
-          }
-          
-          for (const x of xVals) {
-              for (const y of yVals) {
-                  const slope = f(x, y);
-                  
-                  // Use a fixed length approach that normalizes properly
-                  // We treat this as a direction vector (1, slope) and normalize it
-                  const length = Math.sqrt(1 + slope * slope);
-                  const dx_unit = 1 / length;
-                  const dy_unit = slope / length;
-                  
-                  // Scale by arrow length
-                  const dxArrow = dx_unit * arrowLength;
-                  const dyArrow = dy_unit * arrowLength;
-                  
-                  field.push({
-                      x: [x - dxArrow/2, x + dxArrow/2],
-                      y: [y - dyArrow/2, y + dyArrow/2]
-                  });
-              }
-          }
-          
-          return field;
-      }
+        // Generate slope field with proper normalization
+        function generateSlopeField(f, xRange, yRange, arrowLength, density = 20) {
+            const field = [];
+            const xVals = [];
+            const yVals = [];
+            
+            for (let i = 0; i < density; i++) {
+                xVals.push(xRange[0] + i * (xRange[1] - xRange[0]) / (density - 1));
+                yVals.push(yRange[0] + i * (yRange[1] - yRange[0]) / (density - 1));
+            }
+            
+            for (const x of xVals) {
+                for (const y of yVals) {
+                    const slope = f(x, y);
+                    
+                    // Use a fixed length approach that normalizes properly
+                    // We treat this as a direction vector (1, slope) and normalize it
+                    const length = Math.sqrt(1 + slope * slope);
+                    const dx_unit = 1 / length;
+                    const dy_unit = slope / length;
+                    
+                    // Scale by arrow length
+                    const dxArrow = dx_unit * arrowLength;
+                    const dyArrow = dy_unit * arrowLength;
+                    
+                    field.push({
+                        x: [x - dxArrow/2, x + dxArrow/2],
+                        y: [y - dyArrow/2, y + dyArrow/2]
+                    });
+                }
+            }
+            
+            return field;
+        }
 
-      // Interpolate RK4 solution at specific x values
-      function interpolateRK4(xTarget, xsRK4, ysRK4) {
-          for (let i = 0; i < xsRK4.length - 1; i++) {
-              if (xTarget >= xsRK4[i] && xTarget <= xsRK4[i + 1]) {
-                  const t = (xTarget - xsRK4[i]) / (xsRK4[i + 1] - xsRK4[i]);
-                  return ysRK4[i] + t * (ysRK4[i + 1] - ysRK4[i]);
-              }
-          }
-          return ysRK4[ysRK4.length - 1];
-      }
+        // Interpolate RK4 solution at specific x values
+        function interpolateRK4(xTarget, xsRK4, ysRK4) {
+            for (let i = 0; i < xsRK4.length - 1; i++) {
+                if (xTarget >= xsRK4[i] && xTarget <= xsRK4[i + 1]) {
+                    const t = (xTarget - xsRK4[i]) / (xsRK4[i + 1] - xsRK4[i]);
+                    return ysRK4[i] + t * (ysRK4[i + 1] - ysRK4[i]);
+                }
+            }
+            return ysRK4[ysRK4.length - 1];
+        }
 
-      // Update visualization
-      function updateVisualization() {
-          const dx = parseFloat(document.getElementById('dx').value);
-          const x0 = parseFloat(document.getElementById('x0').value);
-          const y0 = parseFloat(document.getElementById('y0').value);
-          const xEnd = parseFloat(document.getElementById('xend').value);
-          const arrowLength = parseFloat(document.getElementById('arrow-length').value);
+        // Update visualization
+        function updateVisualization() {
+            const dx = parseFloat(document.getElementById('dx').value);
+            const x0 = parseFloat(document.getElementById('x0').value);
+            const y0 = parseFloat(document.getElementById('y0').value);
+            const xEnd = parseFloat(document.getElementById('xend').value);
+            const arrowLength = parseFloat(document.getElementById('arrow-length').value);
 
-          // Update displayed values
-          document.getElementById('dx-value').textContent = dx.toFixed(2);
-          document.getElementById('x0-value').textContent = x0.toFixed(1);
-          document.getElementById('y0-value').textContent = y0.toFixed(1);
-          document.getElementById('xend-value').textContent = xEnd.toFixed(1);
-          document.getElementById('arrow-length-value').textContent = arrowLength.toFixed(2);
+            // Update displayed values
+            document.getElementById('dx-value').textContent = dx.toFixed(2);
+            document.getElementById('x0-value').textContent = x0.toFixed(1);
+            document.getElementById('y0-value').textContent = y0.toFixed(1);
+            document.getElementById('xend-value').textContent = xEnd.toFixed(1);
+            document.getElementById('arrow-length-value').textContent = arrowLength.toFixed(2);
 
-          // Calculate solutions
-          const { xs: xsEuler, ys: ysEuler } = eulerMethod(f, x0, y0, xEnd, dx);
-          const { xs: xsRK4, ys: ysRK4 } = rungeKutta4(f, x0, y0, xEnd, 1000);
+            // Calculate solutions
+            const { xs: xsEuler, ys: ysEuler } = eulerMethod(f, x0, y0, xEnd, dx);
+            const { xs: xsRK4, ys: ysRK4 } = rungeKutta4(f, x0, y0, xEnd, 1000);
 
-          // Generate slope field
-          const yMin = Math.min(...ysEuler, y0) - 1;
-          const yMax = Math.max(...ysEuler, y0) + 1;
-          const slopeField = generateSlopeField(f, [x0 - 0.5, xEnd + 0.5], [yMin, yMax], arrowLength, 20);
+            // Generate slope field with safe bounds
+            // Filter out any infinite or very large values
+            const validEulerYs = ysEuler.filter(y => isFinite(y) && Math.abs(y) < 1e10);
+            const validRK4Ys = ysRK4.filter(y => isFinite(y) && Math.abs(y) < 1e10);
+            
+            let yMin, yMax;
+            if (validEulerYs.length > 0 || validRK4Ys.length > 0) {
+                const allValidYs = [...validEulerYs, ...validRK4Ys, y0];
+                yMin = Math.min(...allValidYs) - 1;
+                yMax = Math.max(...allValidYs) + 1;
+            } else {
+                // Default range if solutions diverged
+                yMin = y0 - 2;
+                yMax = y0 + 2;
+            }
+            
+            // Ensure reasonable bounds
+            yMin = Math.max(yMin, -100);
+            yMax = Math.min(yMax, 100);
+            
+            const slopeField = generateSlopeField(f, [x0 - 0.5, xEnd + 0.5], [yMin, yMax], arrowLength, 20);
 
-          // Prepare plot traces
-          const traces = [];
+            // Prepare plot traces
+            const traces = [];
 
-          // Slope field
-          slopeField.forEach(line => {
-              traces.push({
-                  x: line.x,
-                  y: line.y,
-                  mode: 'lines',
-                  line: { color: 'rgba(59, 130, 246, 0.6)', width: 1.5 },
-                  showlegend: false,
-                  hoverinfo: 'skip'
-              });
-          });
+            // Slope field
+            slopeField.forEach(line => {
+                traces.push({
+                    x: line.x,
+                    y: line.y,
+                    mode: 'lines',
+                    line: { color: 'rgba(59, 130, 246, 0.6)', width: 1.5 },
+                    showlegend: false,
+                    hoverinfo: 'skip'
+                });
+            });
 
-          // Accurate solution
-          traces.push({
-              x: xsRK4,
-              y: ysRK4,
-              mode: 'lines',
-              name: 'Accurate solution (RK4)',
-              line: { color: '#22c55e', width: 3 }
-          });
+            // Accurate solution
+            traces.push({
+                x: xsRK4,
+                y: ysRK4,
+                mode: 'lines',
+                name: 'Accurate solution (RK4)',
+                line: { color: '#22c55e', width: 3 }
+            });
 
-          // Euler approximation
-          traces.push({
-              x: xsEuler,
-              y: ysEuler,
-              mode: 'lines+markers',
-              name: `Euler (Δx=${dx})`,
-              line: { color: '#ef4444', width: 2 },
-              marker: { color: '#ef4444', size: 6 }
-          });
+            // Euler approximation
+            traces.push({
+                x: xsEuler,
+                y: ysEuler,
+                mode: 'lines+markers',
+                name: `Euler (Δx=${dx})`,
+                line: { color: '#ef4444', width: 2 },
+                marker: { color: '#ef4444', size: 6 }
+            });
 
-          // Initial condition
-          traces.push({
-              x: [x0],
-              y: [y0],
-              mode: 'markers',
-              name: 'Initial condition',
-              marker: { color: 'black', size: 12, symbol: 'star' }
-          });
+            // Initial condition
+            traces.push({
+                x: [x0],
+                y: [y0],
+                mode: 'markers',
+                name: 'Initial condition',
+                marker: { color: 'black', size: 12, symbol: 'star' }
+            });
 
-          const layout = {
-              title: 'Euler\'s Method with Slope Field',
-              xaxis: { title: 'x' },
-              yaxis: { 
-                  title: 'y',
-                  scaleanchor: 'x',
-                  scaleratio: 1
-              },
-              hovermode: 'closest',
-              showlegend: true,
-              legend: { x: 1, xanchor: 'right', y: 1 }
-          };
+            const layout = {
+                title: 'Euler\'s Method with Slope Field',
+                xaxis: { title: 'x' },
+                yaxis: { 
+                    title: 'y',
+                    scaleanchor: 'x',
+                    scaleratio: 1
+                },
+                hovermode: 'closest',
+                showlegend: true,
+                legend: { x: 1, xanchor: 'right', y: 1 }
+            };
 
-          Plotly.newPlot('plot', traces, layout, { responsive: true });
+            Plotly.newPlot('plot', traces, layout, { responsive: true });
 
-          // Update table
-          const tableBody = document.getElementById('table-body');
-          tableBody.innerHTML = '';
-          
-          xsEuler.forEach((x, i) => {
-              const yAccurate = interpolateRK4(x, xsRK4, ysRK4);
-              const error = Math.abs(ysEuler[i] - yAccurate);
-              
-              const row = tableBody.insertRow();
-              row.insertCell(0).textContent = i;
-              row.insertCell(1).textContent = x.toFixed(4);
-              row.insertCell(2).textContent = ysEuler[i].toFixed(6);
-              row.insertCell(3).textContent = yAccurate.toFixed(6);
-              row.insertCell(4).textContent = error.toExponential(2);
-          });
+            // Update table
+            const tableBody = document.getElementById('table-body');
+            tableBody.innerHTML = '';
+            
+            xsEuler.forEach((x, i) => {
+                const yAccurate = interpolateRK4(x, xsRK4, ysRK4);
+                const error = Math.abs(ysEuler[i] - yAccurate);
+                
+                const row = tableBody.insertRow();
+                row.insertCell(0).textContent = i;
+                row.insertCell(1).textContent = x.toFixed(4);
+                row.insertCell(2).textContent = ysEuler[i].toFixed(6);
+                row.insertCell(3).textContent = yAccurate.toFixed(6);
+                row.insertCell(4).textContent = error.toExponential(2);
+            });
 
-          // Update error summary
-          const yEulerEnd = ysEuler[ysEuler.length - 1];
-          const yAccurateEnd = interpolateRK4(xEnd, xsRK4, ysRK4);
-          const errorEnd = Math.abs(yEulerEnd - yAccurateEnd);
+            // Update error summary
+            const yEulerEnd = ysEuler[ysEuler.length - 1];
+            const yAccurateEnd = interpolateRK4(xEnd, xsRK4, ysRK4);
+            const errorEnd = Math.abs(yEulerEnd - yAccurateEnd);
 
-          document.getElementById('error-summary').innerHTML = `
-            <p><strong>Approximation at x = ${xEnd.toFixed(1)}:</strong></p>
-            <ul>
-              <li>• Euler's method: ${yEulerEnd.toFixed(6)}</li>
-              <li>• Accurate solution: ${yAccurateEnd.toFixed(6)}</li>
-              <li>• Absolute error: ${errorEnd.toFixed(6)}</li>
-              <li>• Number of steps: ${xsEuler.length - 1}</li>
-            </ul>
-          `;
-      }
+            document.getElementById('error-summary').innerHTML = `
+                <p><strong>Approximation at x = ${xEnd.toFixed(1)}:</strong></p>
+                <ul>
+                    <li>• Euler's method: ${yEulerEnd.toFixed(6)}</li>
+                    <li>• Accurate solution: ${yAccurateEnd.toFixed(6)}</li>
+                    <li>• Absolute error: ${errorEnd.toFixed(6)}</li>
+                    <li>• Number of steps: ${xsEuler.length - 1}</li>
+                </ul>
+            `;
+        }
 
-      // Add event listeners to sliders
-      document.getElementById('dx').addEventListener('input', updateVisualization);
-      document.getElementById('x0').addEventListener('input', updateVisualization);
-      document.getElementById('y0').addEventListener('input', updateVisualization);
-      document.getElementById('xend').addEventListener('input', updateVisualization);
-      document.getElementById('arrow-length').addEventListener('input', updateVisualization);
-      
-      // Add event listener to function input
-      document.getElementById('function-input').addEventListener('input', updateFunction);
-      document.getElementById('function-input').addEventListener('change', updateFunction);
+        // Add event listeners to sliders
+        document.getElementById('dx').addEventListener('input', updateVisualization);
+        document.getElementById('x0').addEventListener('input', updateVisualization);
+        document.getElementById('y0').addEventListener('input', updateVisualization);
+        document.getElementById('xend').addEventListener('input', updateVisualization);
+        document.getElementById('arrow-length').addEventListener('input', updateVisualization);
+        
+        // Add event listener to function input
+        document.getElementById('function-input').addEventListener('input', updateFunction);
+        document.getElementById('function-input').addEventListener('change', updateFunction);
 
-      // Initial visualization
-      updateVisualization();
+        // Initial visualization
+        updateVisualization();
     </script>
 </body>
 </html>

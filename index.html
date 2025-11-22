@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Euler's Method Visualization</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f9fafb;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+        
+        h2 {
+            font-size: 1.5rem;
+            color: #1f2937;
+            margin-bottom: 1rem;
+        }
+        
+        .description {
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+        
+        .params-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        
+        .param-control {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .param-label {
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .function-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 2px solid #d1d5db;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .function-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
+        .function-input.error {
+            border-color: #ef4444;
+            background-color: #fee;
+        }
+        
+        .error-message {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #bfdbfe;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .highlight-box {
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+        
+        .highlight-box p {
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+        
+        .highlight-box ul {
+            list-style: none;
+            color: #374151;
+        }
+        
+        .highlight-box li {
+            margin: 0.25rem 0;
+        }
+        
+        #plot {
+            width: 100%;
+            height: 600px;
+        }
+        
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Courier New', monospace;
+        }
+        
+        thead {
+            position: sticky;
+            top: 0;
+            background: #f3f4f6;
+            z-index: 10;
+        }
+        
+        th {
+            padding: 0.75rem;
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #374151;
+            text-transform: uppercase;
+            border-bottom: 2px solid #d1d5db;
+        }
+        
+        td {
+            padding: 0.75rem;
+            text-align: center;
+            font-size: 0.875rem;
+            color: #1f2937;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        tbody tr:nth-child(even) {
+            background: #f9fafb;
+        }
+        
+        .info-box {
+            background: #dbeafe;
+            padding: 1.5rem;
+            border-radius: 6px;
+        }
+        
+        .info-box h2 {
+            color: #1e40af;
+        }
+        
+        .info-box p {
+            color: #1e3a8a;
+        }
+        
+        .info-box code {
+            background: white;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+        
+        ol {
+            margin-left: 1.5rem;
+            color: #374151;
+        }
+        
+        ol li {
+            margin: 0.5rem 0;
+        }
+        
+        strong {
+            color: #1f2937;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="card">
+            <h1>Euler's Method Visualization</h1>
+            <p class="description">
+                This app demonstrates Euler's method for solving differential equations of the form: <em>dy/dx = f(x, y)</em>
+            </p>
+            <p class="description">
+                Adjust the parameters below to see how Euler's method approximates the solution compared to a highly accurate numerical solution.
+            </p>
+        </div>
+
+        <!-- Parameters -->
+        <div class="card">
+            <h2>Parameters</h2>
+            
+            <!-- Derivative Function -->
+            <div class="param-control" style="margin-bottom: 1.5rem;">
+                <label class="param-label">Derivative Function dy/dx = f(x, y):</label>
+                <input type="text" id="function-input" class="function-input" value="x - y" placeholder="Enter function of x and y">
+                <div id="function-error" class="error-message" style="display: none;"></div>
+                <p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem;">
+                    Examples: <code>x - y</code>, <code>y</code>, <code>-y</code>, <code>x*x + y*y</code>, <code>Math.sin(x) + Math.cos(y)</code>
+                </p>
+            </div>
+            
+            <div class="params-grid">
+                <div class="param-control">
+                    <label class="param-label">Step size (Δx): <span id="dx-value">0.20</span></label>
+                    <input type="range" id="dx" min="0.05" max="1.0" step="0.05" value="0.2">
+                </div>
+                <div class="param-control">
+                    <label class="param-label">Initial condition x₀: <span id="x0-value">0.0</span></label>
+                    <input type="range" id="x0" min="-2" max="2" step="0.5" value="0">
+                </div>
+                <div class="param-control">
+                    <label class="param-label">Initial condition y₀: <span id="y0-value">1.0</span></label>
+                    <input type="range" id="y0" min="-2" max="2" step="0.5" value="1">
+                </div>
+                <div class="param-control">
+                    <label class="param-label">x range end: <span id="xend-value">3.0</span></label>
+                    <input type="range" id="xend" min="1" max="5" step="0.5" value="3">
+                </div>
+                <div class="param-control">
+                    <label class="param-label">Slope field arrow length: <span id="arrow-length-value">0.15</span></label>
+                    <input type="range" id="arrow-length" min="0.05" max="0.4" step="0.05" value="0.15">
+                </div>
+            </div>
+        </div>
+
+        <!-- Example Equation -->
+        <div class="card info-box">
+            <h2>Current Equation: <span id="current-equation">dy/dx = x - y</span></h2>
+            <p style="margin-top: 0.5rem; font-size: 0.875rem;">
+                The accurate solution is computed using a 4th-order Runge-Kutta method with 1000 steps.
+            </p>
+        </div>
+
+        <!-- Plot -->
+        <div class="card">
+            <h2>Euler's Method with Slope Field</h2>
+            <div id="plot"></div>
+        </div>
+
+        <!-- Error Analysis -->
+        <div class="card">
+            <h2>Error Analysis</h2>
+            <p class="description">
+                As Δx decreases, Euler's method becomes more accurate. The error at each step is proportional to (Δx)².
+            </p>
+            <p class="description" style="font-size: 0.875rem;">
+                The "accurate solution" is computed using a 4th-order Runge-Kutta method with 1000 steps, making it essentially exact for visualization purposes.
+            </p>
+            <div class="highlight-box" id="error-summary">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Comparison Table -->
+        <div class="card">
+            <h2>Comparison Table</h2>
+            <p class="description">
+                The table below shows the Euler approximation at each step compared to the accurate solution.
+            </p>
+            <div class="table-container">
+                <table id="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Step</th>
+                            <th>x</th>
+                            <th>Euler y</th>
+                            <th>Accurate y</th>
+                            <th>Error</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- How to Use -->
+        <div class="card">
+            <h2>How to Use</h2>
+            <ol>
+                <li><strong>Adjust Δx:</strong> Smaller step sizes give better approximations but require more steps</li>
+                <li><strong>Change initial conditions:</strong> Set x₀ and y₀ to explore different solution curves</li>
+                <li><strong>Extend the range:</strong> Increase x_end to see how the approximation behaves over longer intervals</li>
+            </ol>
+            <p class="description" style="margin-top: 1rem;">
+                The <strong>slope field</strong> shows small line segments indicating the slope dy/dx at each point, giving a visual representation of all possible solutions to the differential equation.
+            </p>
+            <p class="description" style="margin-top: 0.5rem;">
+                The <strong>green curve</strong> is computed using a 4th-order Runge-Kutta method that is much more accurate than Euler's method, serving as our "true" solution for comparison.
+            </p>
+        </div>
+    </div>
+
+    <script>
+      // Define the differential equation: dy/dx = x - y
+      let f = (x, y) => x - y;
+      
+      // Parse and create function from user input
+      function parseFunction(funcString) {
+          try {
+              // Create a function from the string
+              // Use 'with' statement alternative - create function with x and y parameters
+              const func = new Function('x', 'y', `return ${funcString};`);
+              
+              // Test the function with sample values
+              const testResult = func(1, 1);
+              if (typeof testResult !== 'number' || isNaN(testResult)) {
+                  throw new Error('Function must return a number');
+              }
+              
+              return { success: true, func: func };
+          } catch (error) {
+              return { success: false, error: error.message };
+          }
+      }
+      
+      // Update function from input
+      function updateFunction() {
+          const input = document.getElementById('function-input');
+          const errorDiv = document.getElementById('function-error');
+          const currentEq = document.getElementById('current-equation');
+          
+          const result = parseFunction(input.value);
+          
+          if (result.success) {
+              f = result.func;
+              input.classList.remove('error');
+              errorDiv.style.display = 'none';
+              currentEq.textContent = `dy/dx = ${input.value}`;
+              updateVisualization();
+          } else {
+              input.classList.add('error');
+              errorDiv.textContent = `Error: ${result.error}`;
+              errorDiv.style.display = 'block';
+          }
+      }
+
+      // Euler's method implementation
+      function eulerMethod(f, x0, y0, xEnd, dx) {
+          const xs = [x0];
+          const ys = [y0];
+          
+          let x = x0;
+          let y = y0;
+          
+          while (x < xEnd) {
+              y = y + dx * f(x, y);
+              x = x + dx;
+              xs.push(x);
+              ys.push(y);
+          }
+          
+          return { xs, ys };
+      }
+
+      // Runge-Kutta 4th order method for accurate solution
+      function rungeKutta4(f, x0, y0, xEnd, steps = 1000) {
+          const h = (xEnd - x0) / steps;
+          const xs = [x0];
+          const ys = [y0];
+          
+          let x = x0;
+          let y = y0;
+          
+          for (let i = 0; i < steps; i++) {
+              const k1 = h * f(x, y);
+              const k2 = h * f(x + h/2, y + k1/2);
+              const k3 = h * f(x + h/2, y + k2/2);
+              const k4 = h * f(x + h, y + k3);
+              
+              y = y + (k1 + 2*k2 + 2*k3 + k4) / 6;
+              x = x + h;
+              
+              xs.push(x);
+              ys.push(y);
+          }
+          
+          return { xs, ys };
+      }
+
+      // Generate slope field with proper normalization
+      function generateSlopeField(f, xRange, yRange, arrowLength, density = 20) {
+          const field = [];
+          const xVals = [];
+          const yVals = [];
+          
+          for (let i = 0; i < density; i++) {
+              xVals.push(xRange[0] + i * (xRange[1] - xRange[0]) / (density - 1));
+              yVals.push(yRange[0] + i * (yRange[1] - yRange[0]) / (density - 1));
+          }
+          
+          for (const x of xVals) {
+              for (const y of yVals) {
+                  const slope = f(x, y);
+                  
+                  // Use a fixed length approach that normalizes properly
+                  // We treat this as a direction vector (1, slope) and normalize it
+                  const length = Math.sqrt(1 + slope * slope);
+                  const dx_unit = 1 / length;
+                  const dy_unit = slope / length;
+                  
+                  // Scale by arrow length
+                  const dxArrow = dx_unit * arrowLength;
+                  const dyArrow = dy_unit * arrowLength;
+                  
+                  field.push({
+                      x: [x - dxArrow/2, x + dxArrow/2],
+                      y: [y - dyArrow/2, y + dyArrow/2]
+                  });
+              }
+          }
+          
+          return field;
+      }
+
+      // Interpolate RK4 solution at specific x values
+      function interpolateRK4(xTarget, xsRK4, ysRK4) {
+          for (let i = 0; i < xsRK4.length - 1; i++) {
+              if (xTarget >= xsRK4[i] && xTarget <= xsRK4[i + 1]) {
+                  const t = (xTarget - xsRK4[i]) / (xsRK4[i + 1] - xsRK4[i]);
+                  return ysRK4[i] + t * (ysRK4[i + 1] - ysRK4[i]);
+              }
+          }
+          return ysRK4[ysRK4.length - 1];
+      }
+
+      // Update visualization
+      function updateVisualization() {
+          const dx = parseFloat(document.getElementById('dx').value);
+          const x0 = parseFloat(document.getElementById('x0').value);
+          const y0 = parseFloat(document.getElementById('y0').value);
+          const xEnd = parseFloat(document.getElementById('xend').value);
+          const arrowLength = parseFloat(document.getElementById('arrow-length').value);
+
+          // Update displayed values
+          document.getElementById('dx-value').textContent = dx.toFixed(2);
+          document.getElementById('x0-value').textContent = x0.toFixed(1);
+          document.getElementById('y0-value').textContent = y0.toFixed(1);
+          document.getElementById('xend-value').textContent = xEnd.toFixed(1);
+          document.getElementById('arrow-length-value').textContent = arrowLength.toFixed(2);
+
+          // Calculate solutions
+          const { xs: xsEuler, ys: ysEuler } = eulerMethod(f, x0, y0, xEnd, dx);
+          const { xs: xsRK4, ys: ysRK4 } = rungeKutta4(f, x0, y0, xEnd, 1000);
+
+          // Generate slope field
+          const yMin = Math.min(...ysEuler, y0) - 1;
+          const yMax = Math.max(...ysEuler, y0) + 1;
+          const slopeField = generateSlopeField(f, [x0 - 0.5, xEnd + 0.5], [yMin, yMax], arrowLength, 20);
+
+          // Prepare plot traces
+          const traces = [];
+
+          // Slope field
+          slopeField.forEach(line => {
+              traces.push({
+                  x: line.x,
+                  y: line.y,
+                  mode: 'lines',
+                  line: { color: 'rgba(59, 130, 246, 0.6)', width: 1.5 },
+                  showlegend: false,
+                  hoverinfo: 'skip'
+              });
+          });
+
+          // Accurate solution
+          traces.push({
+              x: xsRK4,
+              y: ysRK4,
+              mode: 'lines',
+              name: 'Accurate solution (RK4)',
+              line: { color: '#22c55e', width: 3 }
+          });
+
+          // Euler approximation
+          traces.push({
+              x: xsEuler,
+              y: ysEuler,
+              mode: 'lines+markers',
+              name: `Euler (Δx=${dx})`,
+              line: { color: '#ef4444', width: 2 },
+              marker: { color: '#ef4444', size: 6 }
+          });
+
+          // Initial condition
+          traces.push({
+              x: [x0],
+              y: [y0],
+              mode: 'markers',
+              name: 'Initial condition',
+              marker: { color: 'black', size: 12, symbol: 'star' }
+          });
+
+          const layout = {
+              title: 'Euler\'s Method with Slope Field',
+              xaxis: { title: 'x' },
+              yaxis: { 
+                  title: 'y',
+                  scaleanchor: 'x',
+                  scaleratio: 1
+              },
+              hovermode: 'closest',
+              showlegend: true,
+              legend: { x: 1, xanchor: 'right', y: 1 }
+          };
+
+          Plotly.newPlot('plot', traces, layout, { responsive: true });
+
+          // Update table
+          const tableBody = document.getElementById('table-body');
+          tableBody.innerHTML = '';
+          
+          xsEuler.forEach((x, i) => {
+              const yAccurate = interpolateRK4(x, xsRK4, ysRK4);
+              const error = Math.abs(ysEuler[i] - yAccurate);
+              
+              const row = tableBody.insertRow();
+              row.insertCell(0).textContent = i;
+              row.insertCell(1).textContent = x.toFixed(4);
+              row.insertCell(2).textContent = ysEuler[i].toFixed(6);
+              row.insertCell(3).textContent = yAccurate.toFixed(6);
+              row.insertCell(4).textContent = error.toExponential(2);
+          });
+
+          // Update error summary
+          const yEulerEnd = ysEuler[ysEuler.length - 1];
+          const yAccurateEnd = interpolateRK4(xEnd, xsRK4, ysRK4);
+          const errorEnd = Math.abs(yEulerEnd - yAccurateEnd);
+
+          document.getElementById('error-summary').innerHTML = `
+            <p><strong>Approximation at x = ${xEnd.toFixed(1)}:</strong></p>
+            <ul>
+              <li>• Euler's method: ${yEulerEnd.toFixed(6)}</li>
+              <li>• Accurate solution: ${yAccurateEnd.toFixed(6)}</li>
+              <li>• Absolute error: ${errorEnd.toFixed(6)}</li>
+              <li>• Number of steps: ${xsEuler.length - 1}</li>
+            </ul>
+          `;
+      }
+
+      // Add event listeners to sliders
+      document.getElementById('dx').addEventListener('input', updateVisualization);
+      document.getElementById('x0').addEventListener('input', updateVisualization);
+      document.getElementById('y0').addEventListener('input', updateVisualization);
+      document.getElementById('xend').addEventListener('input', updateVisualization);
+      document.getElementById('arrow-length').addEventListener('input', updateVisualization);
+      
+      // Add event listener to function input
+      document.getElementById('function-input').addEventListener('input', updateFunction);
+      document.getElementById('function-input').addEventListener('change', updateFunction);
+
+      // Initial visualization
+      updateVisualization();
+    </script>
+</body>
+</html>
